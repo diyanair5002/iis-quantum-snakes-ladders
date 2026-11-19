@@ -94,47 +94,37 @@
           <span><i class="legend-curve"></i>Snakes (Decoherence)</span>
           <span class="legend-note">Paths activate when Hardware Decoherence &gt; 0%.</span>
         </div>
-        <div class="planned-feature">
-          <span class="planned-badge">Planned Feature — Outreach Mode</span>
-          <label for="outreach-slider">Before / After Probability Split</label>
-          <input id="outreach-slider" type="range" min="0" max="100" value="0" aria-label="Planned pre-diffusion to post-diffusion preview" disabled>
-          <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:800;color:#475569;">
-            <span>Pre-Diffusion 1.6%</span><span>Post-Diffusion Preview</span>
-          </div>
-          <p class="planned-caption">A non-destructive comparison control planned for Phase 3 outreach evaluation.</p>
-        </div>
       </div>
+
+      <section class="board-controls" aria-labelledby="simulation-controls-heading">
+        <h2 id="simulation-controls-heading">Simulation Controls</h2>
+        <div class="control-buttons">
+          <button id="play-btn" class="btn-run">Play Algorithm</button>
+          <button id="step-btn" class="btn-step">Step +1</button>
+        </div>
+
+        <div class="range-group">
+          <div class="control-label">
+            <label for="target-slider">Target Square (Oracle)</label>
+            <span id="target-ui" style="color:var(--v-mid)">43</span>
+          </div>
+          <input type="range" id="target-slider" min="1" max="64" value="43" oninput="updateTarget(this.value)">
+        </div>
+
+        <div class="range-group">
+          <div class="control-label">
+            <label for="noise-slider">Hardware Decoherence</label>
+            <span id="noise-ui" style="color:var(--snake)">0%</span>
+          </div>
+          <input type="range" id="noise-slider" min="0" max="80" value="0" oninput="updateNoise(this.value)">
+          <small id="noise-mode" class="noise-mode">Ideal mode: exact unitary Grover operator.</small>
+        </div>
+        <button id="reset-btn" class="btn-step reset-button">Reset Simulation</button>
+      </section>
     </div>
 
     <div class="control-sidebar">
-      <div class="sidebar-top">
-        <div class="sidebar-card control-card">
-          <h2>Simulation Controls</h2>
-          <div class="control-buttons">
-            <button id="play-btn" class="btn-run">Play Algorithm</button>
-            <button id="step-btn" class="btn-step">Step +1</button>
-          </div>
-
-          <div class="range-group">
-            <div class="control-label">
-              <label for="target-slider">Target Square (Oracle)</label>
-              <span id="target-ui" style="color:var(--v-mid)">43</span>
-            </div>
-            <input type="range" id="target-slider" min="1" max="64" value="43" oninput="updateTarget(this.value)">
-          </div>
-
-          <div class="range-group">
-            <div class="control-label">
-              <label for="noise-slider">Hardware Decoherence</label>
-              <span id="noise-ui" style="color:var(--snake)">0%</span>
-            </div>
-            <input type="range" id="noise-slider" min="0" max="80" value="0" oninput="updateNoise(this.value)">
-            <small id="noise-mode" class="noise-mode">Ideal mode: exact unitary Grover operator.</small>
-          </div>
-          <button id="reset-btn" class="btn-step reset-button" style="width:100%;">Reset Simulation</button>
-        </div>
-
-        <div class="sidebar-card copilot-card">
+      <div class="sidebar-card copilot-card">
           <h2>Mixed-Initiative AI Copilot</h2>
           <p class="copilot-intro">Ask about the board or a quantum step. Review every proposed action before applying it.</p>
           <form id="copilot-form">
@@ -149,11 +139,15 @@
           </div>
           <div id="copilot-query-echo" class="copilot-query-echo" aria-live="polite" hidden></div>
           <div id="copilot-message" class="copilot-message" role="status" aria-live="polite"></div>
+          <details id="json-inspector" class="json-inspector">
+            <summary>Inspect Validated JSON Contract</summary>
+            <div id="json-mode" class="json-mode">Simulated Local Router</div>
+            <pre id="json-payload" class="json-payload"></pre>
+          </details>
           <div id="recovery-chips" class="chip-list" aria-label="Suggested recovery actions"></div>
           <div id="copilot-actions" class="copilot-actions" hidden>
             <button id="apply-proposal" type="button" class="btn-apply">Apply Proposed Step</button>
             <button id="dismiss-proposal" type="button" class="btn-dismiss">Dismiss / Undo</button>
-          </div>
         </div>
       </div>
 

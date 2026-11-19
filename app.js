@@ -177,6 +177,12 @@
       throw new Error(`Unsupported proposed step: ${step}`);
     }
     render();
+    if (selectedStep === 'diffusion' && !pendingProposal && [6, 7].includes(iterations)) {
+      const coachingMessage = iterations === 6
+        ? 'Iteration 6 reached the ~99.7% optimal peak; further steps over-rotate probability downward.'
+        : 'Iteration 7 has over-rotated past the optimal peak, so target probability is falling.';
+      showMessage(coachingMessage, ['Reset to Superposition']);
+    }
   }
 
   function initK6() {
@@ -315,8 +321,32 @@
     receipt.hidden = true;
   }
 
+  function renderJsonInspector(payload) {
+    document.getElementById('json-mode').textContent =
+      window.CUSTOM_LLM_KEY ? 'Live API' : 'Simulated Local Router';
+    document.getElementById('json-payload').textContent = JSON.stringify(payload, null, 2);
+  }
+
   function routeInference(prompt) {
     const normalized = prompt.toLowerCase();
+    const targetSquare = Number(document.getElementById('target-slider').value);
+    const targetProbability = (amplitudes[targetSquare - 1] ** 2 * 100).toFixed(1);
+    const isOverview = /\bwhat is grover\b|\bhow does grover\b|\bexplain the algorithm\b|\bhow does this board work\b|\bwhy 6 iterations\b|\boverview\b/.test(normalized);
+    if (isOverview) {
+      return {
+        focus_square: null,
+        concept_identified: 'grover_overview',
+        explanation_text: `Grover's search targets square ${targetSquare}, currently ${targetProbability}%; six oracle-diffusion cycles can amplify it toward 99.7% using wave interference.`,
+        visual_action: 'none',
+        next_step: 'none',
+        suggested_chips: [
+          '1. Explain Oracle Phase Flip',
+          '2. Run Diffusion Step',
+          '3. Reset Simulation'
+        ]
+      };
+    }
+
     const simulationTopics = /\b(oracle|phase|target|square|tile|diffusion|amplif\w*|probabilit\w*|amplitud\w*|quantum|grover|board|ladder|snake|state|interference|marked|hardware|decoheren\w*|noise)\b/.test(normalized);
     const explicitOutOfScope = /\b(equation|homework|trivia|weather|sports|news|translate|recipe|capital|president|celebrity)\b/.test(normalized);
     const outOfScope = explicitOutOfScope || !simulationTopics;
@@ -336,17 +366,27 @@
     const focusSquare = requestedSquare !== null && requestedSquare >= 1 && requestedSquare <= N
       ? requestedSquare
       : selectedSquareIndex + 1;
+    const focusIdx = focusSquare - 1;
+    const pFocus = (amplitudes[focusIdx] ** 2 * 100).toFixed(1);
+    const signFocus = amplitudes[focusIdx] < 0 ? '−' : '+';
+    const mean = (amplitudes.reduce((sum, amplitude) => sum + amplitude, 0) / N).toFixed(3);
+    const noise = Number(document.getElementById('noise-slider').value);
+    const pTarget = (amplitudes[targetSquare - 1] ** 2 * 100).toFixed(1);
     const isDecoherenceQuestion = /\b(decoheren\w*|noise)\b/.test(normalized);
     const isDiffusionQuestion = /\b(diffusion|amplif|interference)\b/.test(normalized);
-    const phaseExplanation = 'The oracle flips the target amplitude sign, not its probability, so the tile colour stays unchanged until diffusion.';
-    const diffusionExplanation = 'Diffusion reflects amplitudes around their average, increasing the marked square’s probability while reducing probability elsewhere.';
-    const decoherenceExplanation = 'Increasing hardware decoherence adds noise that weakens interference, so the target probability becomes less reliably amplified.';
+    const phaseExplanation =
+      `Square ${focusSquare} is ${signFocus}${pFocus}% at cycle ${iterations}; oracle flips its phase, not probability. Mean ${mean}; target ${targetSquare}: ${pTarget}%; noise ${noise}%.`;
+    const diffusionExplanation = iterations >= 6
+      ? `Cycle ${iterations}: square ${focusSquare} is ${signFocus}${pFocus}%; mean ${mean}; target ${targetSquare}: ${pTarget}%; noise ${noise}%. Cycle 6 reached ~99.7%; more diffusion over-rotates downward.`
+      : `Cycle ${iterations}: square ${focusSquare} is ${signFocus}${pFocus}%; diffusion reflects around mean ${mean}; target ${targetSquare}: ${pTarget}%; noise ${noise}%.`;
+    const decoherenceExplanation =
+      `Cycle ${iterations}: square ${focusSquare} is ${signFocus}${pFocus}%; decoherence ${noise}% ${noise > 0 ? 'activates ladder coupling and snake damping' : 'keeps paths ideally uncoupled'}; mean ${mean}; target ${targetSquare}: ${pTarget}%.`;
     return {
       focus_square: focusSquare,
       concept_identified: isDecoherenceQuestion ? 'decoherence_effect' : isDiffusionQuestion ? 'diffusion_amplification' : 'oracle_phase_invariance',
       explanation_text: isDecoherenceQuestion ? decoherenceExplanation : isDiffusionQuestion ? diffusionExplanation : phaseExplanation,
       visual_action: 'ghost_highlight',
-      next_step: subStep === 0 ? 'oracle' : 'diffusion',
+      next_step: isDiffusionQuestion ? 'diffusion' : subStep === 0 ? 'oracle' : 'diffusion',
       suggested_chips: []
     };
   }
@@ -361,7 +401,7 @@
         !keys.every(key => Object.prototype.hasOwnProperty.call(payload, key))) {
       throw new TypeError('Copilot response does not match the required JSON schema.');
     }
-    const validConcepts = ['oracle_phase_invariance', 'diffusion_amplification', 'decoherence_effect', 'out_of_scope'];
+    const validConcepts = ['oracle_phase_invariance', 'diffusion_amplification', 'decoherence_effect', 'grover_overview', 'out_of_scope'];
     const validActions = ['ghost_highlight', 'none'];
     const validSteps = ['oracle', 'diffusion', 'none'];
     const wordCount = typeof payload.explanation_text === 'string'
@@ -373,19 +413,23 @@
         !validConcepts.includes(payload.concept_identified) ||
         !validActions.includes(payload.visual_action) ||
         !validSteps.includes(payload.next_step) ||
-        wordCount > 25 ||
+        wordCount > 30 ||
         !Array.isArray(payload.suggested_chips) ||
         !payload.suggested_chips.every(chip => typeof chip === 'string')) {
       throw new RangeError('Copilot response contains invalid fields or an out-of-bounds square.');
     }
-    if (payload.concept_identified === 'out_of_scope' &&
+    if (['out_of_scope', 'grover_overview'].includes(payload.concept_identified) &&
         (payload.focus_square !== null || payload.visual_action !== 'none' || payload.next_step !== 'none')) {
-      throw new TypeError('Out-of-scope responses must not target or modify the board.');
+      throw new TypeError('Overview and out-of-scope responses must not target or modify the board.');
     }
-    if (payload.concept_identified !== 'out_of_scope' &&
+    if (!['out_of_scope', 'grover_overview'].includes(payload.concept_identified) &&
         (payload.focus_square === null || payload.visual_action !== 'ghost_highlight' ||
          !['oracle', 'diffusion'].includes(payload.next_step))) {
       throw new TypeError('In-scope responses must propose a valid square and simulation step.');
+    }
+    if (payload.concept_identified === 'grover_overview' &&
+        !payload.suggested_chips.includes('1. Explain Oracle Phase Flip')) {
+      throw new TypeError('Overview responses must include the expected recovery actions.');
     }
     return {
       ...payload,
@@ -422,7 +466,8 @@
       if (requestId !== inferenceRequestId) return;
       const rawResponse = routeInference(submittedPrompt);
       const response = validateInference(rawResponse);
-      if (response.concept_identified === 'out_of_scope') {
+      renderJsonInspector(response);
+      if (['out_of_scope', 'grover_overview'].includes(response.concept_identified)) {
         pendingProposal = null;
         document.getElementById('copilot-actions').hidden = true;
         drawSnakes();
@@ -444,9 +489,12 @@
     pendingProposal = null;
     selectedSquareIndex = proposal.index;
     document.getElementById('copilot-actions').hidden = true;
+    const coachingMilestone = proposal.next_step === 'diffusion' && [6, 7].includes(iterations + 1);
     runStep(proposal.next_step, proposal.index);
     drawSnakes();
-    showMessage(`Applied ${proposal.next_step} to square ${proposal.focus_square}.`);
+    if (!coachingMilestone) {
+      showMessage(`Applied ${proposal.next_step} to square ${proposal.focus_square}.`);
+    }
   }
 
   function dismissProposal() {
@@ -457,15 +505,23 @@
   }
 
   function handleRecovery(action) {
-    if (action === 'Explain Oracle Phase Flip') {
+    if (action === '1. Explain Oracle Phase Flip' || action === 'Explain Oracle Phase Flip') {
       document.getElementById('copilot-prompt').value = 'Why did the oracle flip the target phase?';
       submitPrompt(document.getElementById('copilot-prompt').value);
+    } else if (action === '2. Run Diffusion Step') {
+      document.getElementById('copilot-prompt').value = '';
+      showQueryReceipt(action);
+      const coachingMilestone = [6, 7].includes(iterations + 1);
+      runStep('diffusion');
+      if (!coachingMilestone) {
+        showMessage('Applied one diffusion step to the current state vector.');
+      }
     } else if (action === 'Highlight Target Square') {
       selectedSquareIndex = Number(document.getElementById('target-slider').value) - 1;
       render();
       document.getElementById('copilot-prompt').value = 'Highlight the target square';
       submitPrompt(document.getElementById('copilot-prompt').value);
-    } else if (action === 'Reset Simulation') {
+    } else if (action === '3. Reset Simulation' || action === 'Reset Simulation' || action === 'Reset to Superposition') {
       document.getElementById('copilot-prompt').value = '';
       resetApp();
       showQueryReceipt(action);
