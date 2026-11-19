@@ -1,8 +1,8 @@
+* { box-sizing: border-box; }
   :root {
     --v-low: #440154; --v-mid: #21918c; --v-high: #fde725; --v-super: #35b779; --snake: #ff4d4d;
     --bg: #f8fafc; --card: #ffffff; --text: #0f172a;
   }
-  * { box-sizing: border-box; }
   body { margin: 0; font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
 
   /* NAVIGATION */

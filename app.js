@@ -21,8 +21,6 @@
   let overlayGeometry = null;
   let inferenceRequestId = 0;
 
-  if (!('CUSTOM_LLM_KEY' in window)) window.CUSTOM_LLM_KEY = null;
-
   function switchTab(id) {
     if (id === 'intro' && timer) {
       clearInterval(timer);
@@ -322,10 +320,9 @@
   }
 
   function renderJsonInspector(payload) {
-    document.getElementById('json-mode').textContent =
-      window.CUSTOM_LLM_KEY ? 'Live API' : 'Simulated Local Router';
-    document.getElementById('json-payload').textContent = JSON.stringify(payload, null, 2);
-  }
+  document.getElementById('json-mode').textContent = 'Simulated Local Router';
+  document.getElementById('json-payload').textContent = JSON.stringify(payload, null, 2);
+}
 
   function routeInference(prompt) {
     const normalized = prompt.toLowerCase();
